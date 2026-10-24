@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2b3a2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Articol">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Editor Articol</title>
+<style>
+  :root{
+    --bg:#f3efe6; --paper:#fbf9f4; --ink:#2a2620;
+    --muted:#7a7264; --line:#ddd6c8; --accent:#7a5c3e; --accent-soft:#e9e0d2;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:system-ui,sans-serif;line-height:1.6;
+    -webkit-text-size-adjust:100%;
+  }
+  .topbar{
+    position:sticky;top:0;z-index:50;background:var(--bg);
+    border-bottom:1px solid var(--line);padding:.6rem 1rem;
+    display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;
+  }
+  .topbar h1{
+    font-size:.78rem;margin:0;margin-right:auto;font-weight:normal;
+    letter-spacing:.03em;color:var(--muted);line-height:1.25;
+    max-width:42%;
+  }
+  button{
+    font-family:system-ui,sans-serif;font-size:.9rem;
+    border:1px solid var(--line);background:var(--paper);color:var(--btn-ink,var(--ink));
+    padding:.5rem .8rem;border-radius:8px;cursor:pointer;
+    transition:background .15s,border-color .15s;
+  }
+  button:hover{background:var(--accent-soft)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{filter:brightness(1.08)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .icon-btn{padding:.5rem .6rem}
+
+  /* panouri pliabile — plutesc sub bara de sus, oriunde ai fi in pagina */
+  .panou{position:fixed;left:0;right:0;top:var(--topbar-h,52px);z-index:60;
+    background:var(--paper);overflow:hidden;max-height:0;pointer-events:none;
+    transition:max-height .28s ease}
+  .panou.deschis{max-height:calc(100vh - var(--topbar-h,52px) - .5rem);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;pointer-events:auto;
+    border-bottom:1px solid var(--line);box-shadow:0 10px 24px rgba(0,0,0,.22)}
+  @supports(height:100dvh){
+    .panou.deschis{max-height:calc(100dvh - var(--topbar-h,52px) - .5rem)}
+  }
+  .panou-in{padding:1rem;display:grid;gap:1rem}
+
+  /* proiecte */
+  .proj-list{display:grid;gap:.4rem}
+  .proj{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;
+    border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+  .proj.activ{border-color:var(--accent);background:var(--accent-soft)}
+  .proj-nume{flex:1;font-size:.95rem;border:none;background:transparent;color:var(--ink);
+    font-family:system-ui,sans-serif}
+  .proj-nume:focus{outline:none}
+  .proj .mini{width:30px;height:30px;padding:0;font-size:.95rem;display:flex;
+    align-items:center;justify-content:center;border-radius:6px}
+  .cauta-input{width:100%;font-size:.95rem;padding:.6rem .7rem;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);
+    font-family:system-ui,sans-serif}
+  .cauta-input:focus{outline:none;border-color:var(--accent)}
+  .cauta-rez{display:grid;gap:.3rem;margin-top:.5rem}
+  .cauta-hit{padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);cursor:pointer;font-family:system-ui,sans-serif}
+  .cauta-hit:active{background:var(--accent-soft)}
+  .cauta-hit .h-titlu{font-size:.9rem;font-weight:600;color:var(--accent)}
+  .cauta-hit .h-frag{font-size:.85rem;color:var(--muted);margin-top:.2rem;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cauta-hit mark{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
+  .cauta-gol{font-size:.85rem;color:var(--muted);font-style:italic;padding:.3rem}
+  .bloc-view{padding:.5rem .5rem .5rem .4rem;border-radius:8px;min-height:2.4em;
+    white-space:pre-wrap;cursor:text;border:1px solid transparent}
+  .bloc-view:hover{background:var(--bg)}
+  .view-gol{color:var(--muted);font-style:italic}
+  .leg-link{color:#2563eb;text-decoration:underline;cursor:pointer;
+    text-underline-offset:2px;background:rgba(37,99,235,.08);border-radius:3px;
+    padding:0 1px}
+  .leg-link:active{color:#1e40af;background:rgba(37,99,235,.2)}
+  .mod-toggle{background:var(--accent-soft);border:1px solid var(--accent);
+    color:var(--btn-ink,var(--accent));font-weight:600}
+  .mod-toggle.citire{background:#e0f2e9;border-color:#2f855a;color:#2f855a}
+  /* selectie frază în modul citire */
+  .sel-cuvant{background:rgba(37,99,235,.25);border-radius:3px}
+  body.mod-citire .bloc-view{-webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none}
+  body.mod-citire .cuv{cursor:pointer}
+  body.mod-citire .bloc textarea{display:none!important}
+  body.mod-editare .bloc-view{display:none!important}
+  body.mod-citire .tools{display:none!important}
+  body.mod-citire .dock{display:none!important}
+  body.mod-citire .bloc img{cursor:zoom-in}
+  .sel-bara{position:fixed;bottom:calc(5rem + env(safe-area-inset-bottom));
+    left:50%;transform:translateX(-50%);z-index:90;display:none;gap:.5rem;
+    background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    padding:.5rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+  .sel-bara.activ{display:flex}
+  .sel-bara button{font-size:.9rem;white-space:nowrap}
+  .flash-tinta{animation:flashGalben 1.8s ease}
+  @keyframes flashGalben{
+    0%,100%{background:transparent}
+    15%,55%{background:#ffe08a}
+  }
+  .dialog-fundal{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.5);
+    display:none;align-items:center;justify-content:center;padding:1rem}
+  .dialog-fundal.activ{display:flex}
+  .dialog{background:var(--paper);border-radius:14px;max-width:420px;width:100%;
+    max-height:75vh;overflow:auto;padding:1rem;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .dialog h3{margin:.2rem 0 .8rem;font-family:system-ui,sans-serif;font-size:1rem}
+  .dialog .d-sub{font-size:.85rem;color:var(--muted);margin-bottom:.8rem;
+    font-family:system-ui,sans-serif}
+  .dialog .d-proj{display:block;width:100%;text-align:left;margin-bottom:.4rem;
+    padding:.6rem .7rem;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);cursor:pointer;font-size:.95rem}
+  .dialog .d-proj:active{background:var(--accent-soft)}
+  .dialog .d-anuleaza{margin-top:.5rem;width:100%}
+
+  .rand{display:grid;gap:.35rem}
+  .rand label{font-size:.82rem;color:var(--muted);font-weight:600}
+  .rand .ctrl{display:flex;gap:.6rem;align-items:center}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  input[type=color]{width:44px;height:34px;border:1px solid var(--line);
+    border-radius:8px;background:none;cursor:pointer;padding:2px}
+  select{flex:1;font-size:.95rem;padding:.5rem;border-radius:8px;
+    border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+  .val{font-size:.82rem;color:var(--muted);min-width:3.2em;text-align:right}
+  .swatches{display:flex;gap:.4rem;flex-wrap:wrap}
+  .swatch{width:30px;height:30px;border-radius:50%;border:2px solid #fff;
+    box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+  .swatch:hover{transform:scale(1.1)}
+
+  .wrap{max-width:100%;margin:0 auto;padding:1rem .5rem 6rem}
+  .titlu-doc{width:100%;border:none;background:transparent;font-family:inherit;
+    font-size:1.35rem;font-weight:600;color:var(--ink);padding:.4rem 0;
+    margin-bottom:.4rem;border-bottom:1px dashed var(--line);
+    line-height:1.3;resize:none;overflow:hidden;display:block}
+  .titlu-doc:focus{outline:none;border-bottom-color:var(--accent)}
+
+  .bloc{position:relative;margin:.3rem 0;animation:in .25s ease}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .bloc textarea{width:100%;border:1px solid transparent;background:transparent;
+    font-family:inherit;font-size:inherit;line-height:inherit;color:inherit;
+    resize:none;overflow:hidden;padding:.5rem .5rem .5rem .4rem;
+    border-radius:8px;min-height:2.4em}
+  .bloc textarea:hover{background:var(--bg)}
+  .bloc textarea:focus{outline:none;background:var(--bg);border-color:var(--line)}
+  .bloc img{max-width:220px;max-height:220px;display:block;border-radius:10px;
+    cursor:zoom-in;border:1px solid var(--line)}
+
+  .tools{position:absolute;top:.3rem;right:.3rem;display:flex;gap:.25rem;
+    opacity:0;transition:opacity .15s;background:var(--paper);
+    border-radius:8px;padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  .bloc:hover .tools,.bloc:focus-within .tools{opacity:1}
+  .tool{width:28px;height:28px;padding:0;border-radius:6px;display:flex;
+    align-items:center;justify-content:center;font-size:.95rem}
+  .tool input[type=color]{width:28px;height:28px;border-radius:6px}
+  .tool.activ{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+  /* bloc marcat drept capitol: o linie-accent in stanga */
+  .bloc.e-capitol{border-left:3px solid var(--accent);padding-left:.6rem;
+    margin-left:-.6rem;border-radius:4px}
+
+  .gol{color:var(--muted);text-align:center;padding:3rem 1rem;font-style:italic}
+
+  .dock{position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--paper);
+    border-top:1px solid var(--line);padding:.7rem 1rem;display:flex;gap:.6rem;
+    justify-content:center;padding-bottom:calc(.7rem + env(safe-area-inset-bottom))}
+  .dock button{flex:1;max-width:200px}
+
+  /* lightbox */
+  .lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);
+    display:none;touch-action:none;overflow:hidden}
+  .lightbox.activ{display:block}
+  .lightbox img{position:absolute;top:0;left:0;transform-origin:0 0;
+    max-width:none;max-height:none;
+    will-change:transform;user-select:none;-webkit-user-drag:none}
+
+  @media(max-width:480px){.topbar h1{max-width:100%;width:100%;margin-bottom:.3rem}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="numeProiectBar">Articol</h1>
+    <button id="modToggle" class="mod-toggle" title="Comută Editare / Citire">✏️ Editare</button>
+    <button id="toggleProiecte" class="icon-btn" title="Proiecte">Proiecte</button>
+    <button id="toggleSetari" class="icon-btn">Aspect</button>
+    <button id="export" class="primary">Export</button>
+  </div>
+
+  <!-- panou proiecte -->
+  <div class="panou" id="panouProiecte">
+    <div class="panou-in">
+      <div class="rand">
+        <label>Caută în toate proiectele</label>
+        <input type="search" id="cautare" class="cauta-input" placeholder="cuvânt sau frază (fără diacritice)…" />
+        <div class="cauta-rez" id="cautaRez"></div>
+      </div>
+      <div class="rand">
+        <label>Proiectele tale</label>
+        <div class="proj-list" id="projList"></div>
+      </div>
+      <button id="proiectNou" class="primary">+ Proiect nou</button>
+    </div>
+  </div>
+
+  <!-- panou aspect -->
+  <div class="panou" id="panouSetari">
+    <div class="panou-in">
+      <div class="rand">
+        <label>Font</label>
+        <div class="ctrl">
+          <select id="font">
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Verdana, Geneva, sans-serif">Verdana</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+            <option value="Garamond, serif">Garamond</option>
+            <option value="'Courier New', monospace">Courier (mono)</option>
+            <option value="system-ui, sans-serif">Sistem</option>
+          </select>
+        </div>
+      </div>
+      <div class="rand">
+        <label>Mărime text</label>
+        <div class="ctrl">
+          <input type="range" id="marime" min="13" max="28" step="1" value="17">
+          <span class="val" id="marimeVal">17px</span>
+        </div>
+      </div>
+      <div class="rand">
+        <label>Spațiere rânduri</label>
+        <div class="ctrl">
+          <input type="range" id="spatiere" min="1.1" max="2.2" step="0.05" value="1.65">
+          <span class="val" id="spatiereVal">1.65</span>
+        </div>
+      </div>
+      <div class="rand">
+        <label>Culoare fundal</label>
+        <div class="ctrl">
+          <input type="color" id="bgColor" value="#f3efe6">
+          <div class="swatches" id="bgSwatches"></div>
+        </div>
+      </div>
+      <div class="rand">
+        <label>Luminozitate fundal (deschis → închis)</label>
+        <div class="ctrl">
+          <input type="range" id="bgLum" min="0" max="85" step="1" value="0">
+          <span class="val" id="bgLumVal">0%</span>
+        </div>
+      </div>
+      <div class="rand">
+        <label>Culoare text (implicită)</label>
+        <div class="ctrl">
+          <input type="color" id="inkColor" value="#2a2620">
+          <div class="swatches" id="inkSwatches"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <textarea class="titlu-doc" id="titlu" rows="1" placeholder="Titlul articolului…"></textarea>
+    <div id="continut"></div>
+    <div class="gol" id="gol">Adaugă text sau o poză ca să începi.</div>
+  </div>
+
+  <div class="dock">
+    <button id="addText">+ Text</button>
+    <button id="addPoza" class="primary">+ Poză</button>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" hidden />
+
+  <!-- bara de selectie fraza (mod citire) -->
+  <div class="sel-bara" id="selBara">
+    <button id="selLeaga" class="primary">🔗 Leagă selecția</button>
+    <button id="selAnuleaza">Anulează</button>
+  </div>
+
+  <!-- dialog alegere proiect pentru legatura -->
+  <div class="dialog-fundal" id="dialogLeg">
+    <div class="dialog">
+      <h3>Leagă către proiectul…</h3>
+      <div class="d-sub" id="dialogSub"></div>
+      <div id="dialogProiecte"></div>
+      <button class="d-anuleaza" id="dialogAnuleaza">Anulează</button>
+    </div>
+  </div>
+
+  <!-- dialog export / backup -->
+  <div class="dialog-fundal" id="dialogExport">
+    <div class="dialog">
+      <h3>Export & backup</h3>
+      <div class="d-sub">Alege ce vrei să salvezi.</div>
+      <button class="d-proj" id="expArticol">📄 Articolul curent (HTML)</button>
+      <button class="d-proj" id="expToate">📚 Toate proiectele (HTML, cu legături)</button>
+      <button class="d-proj" id="expJSON">💾 Backup complet (JSON)</button>
+      <button class="d-proj" id="impJSON">♻️ Recuperare din backup (JSON)</button>
+      <button class="d-anuleaza" id="expAnuleaza">Anulează</button>
+    </div>
+  </div>
+
+  <!-- dialog recuperare -->
+  <div class="dialog-fundal" id="dialogRecup">
+    <div class="dialog">
+      <h3>Recuperare din backup</h3>
+      <div class="d-sub" id="recupSub"></div>
+      <button class="d-proj" id="recupInlocuieste">🧹 Înlocuiește tot (șterge ce ai acum)</button>
+      <button class="d-proj" id="recupAdauga">➕ Adaugă la proiectele existente</button>
+      <button class="d-anuleaza" id="recupAnuleaza">Anulează</button>
+    </div>
+  </div>
+
+  <input type="file" id="fileJSON" accept=".json,application/json" hidden />
+
+  <!-- lightbox -->
+  <div class="lightbox" id="lightbox">
+    <img id="lbImg" alt="poză mărită">
+  </div>
+
+<script>
+/* ====================== IndexedDB ====================== */
+const DB_NAME='editorArticolDB', STORE='proiecte';
+let db;
+function deschideDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,1);
+    r.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains(STORE))
+        d.createObjectStore(STORE,{keyPath:'id'});
+    };
+    r.onsuccess=e=>{db=e.target.result;res(db);};
+    r.onerror=e=>rej(e.target.error);
+  });
+}
+function idbPut(obj){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(obj);
+    tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error);
+  });
+}
+function idbGetAll(){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readonly');
+    const rq=tx.objectStore(STORE).getAll();
+    rq.onsuccess=()=>res(rq.result||[]);rq.onerror=e=>rej(e.target.error);
+  });
+}
+function idbGet(id){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readonly');
+    const rq=tx.objectStore(STORE).get(id);
+    rq.onsuccess=()=>res(rq.result||null);rq.onerror=e=>rej(e.target.error);
+  });
+}
+function idbDelete(id){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error);
+  });
+}
+
+/* ====================== State ====================== */
+const continut=document.getElementById('continut');
+const gol=document.getElementById('gol');
+const titlu=document.getElementById('titlu');
+const fileInput=document.getElementById('fileInput');
+const root=document.documentElement;
+const font=document.getElementById('font');
+const marime=document.getElementById('marime');
+const spatiere=document.getElementById('spatiere');
+const bgColor=document.getElementById('bgColor');
+const inkColor=document.getElementById('inkColor');
+const bgLum=document.getElementById('bgLum');
+const numeProiectBar=document.getElementById('numeProiectBar');
+
+/* intuneca o culoare hex cu un procent (0-100) */
+function intunecaCuloare(hex,procent){
+  hex=hex.replace('#','');
+  if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
+  let r=parseInt(hex.substr(0,2),16);
+  let g=parseInt(hex.substr(2,2),16);
+  let b=parseInt(hex.substr(4,2),16);
+  const f=1-(procent/100);
+  r=Math.round(r*f);g=Math.round(g*f);b=Math.round(b*f);
+  const h=n=>('0'+n.toString(16)).slice(-2);
+  return '#'+h(r)+h(g)+h(b);
+}
+/* descompune hex -> {r,g,b} */
+function hex2rgb(hex){
+  hex=hex.replace('#','');
+  if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
+  return {r:parseInt(hex.substr(0,2),16),g:parseInt(hex.substr(2,2),16),b:parseInt(hex.substr(4,2),16)};
+}
+function rgb2hex(r,g,b){
+  const h=n=>('0'+Math.max(0,Math.min(255,Math.round(n))).toString(16)).slice(-2);
+  return '#'+h(r)+h(g)+h(b);
+}
+/* luminozitate perceputa 0..255 */
+function lumina(hex){const c=hex2rgb(hex);return 0.299*c.r+0.587*c.g+0.114*c.b;}
+/* deplaseaza o culoare spre mai inchis (delta<0) sau mai deschis (delta>0), in pasi 0..1 */
+function ajusteaza(hex,delta){
+  const c=hex2rgb(hex);
+  if(delta<0){const f=1+delta;return rgb2hex(c.r*f,c.g*f,c.b*f);}
+  const f=delta;return rgb2hex(c.r+(255-c.r)*f,c.g+(255-c.g)*f,c.b+(255-c.b)*f);
+}
+/* deriva tonurile interfetei din culoarea de fond:
+   butoanele putin mai INCHISE decat fondul, in acelasi ton */
+function aplicaTonuriUI(bg){
+  const L=lumina(bg);
+  const inchis = L < 110;           // fond intunecat?
+  // butoane: putin mai inchise decat fondul
+  const paper      = ajusteaza(bg, inchis ? -0.12 : -0.06);
+  const accentSoft = ajusteaza(bg, inchis ? -0.20 : -0.12);
+  // borduri: un strop mai inchise / mai deschise pt contur fin
+  const line       = ajusteaza(bg, inchis ? +0.10 : -0.14);
+  // text secundar (muted): contrast suficient fata de fond
+  const muted      = inchis ? ajusteaza(bg, +0.45) : ajusteaza(bg, -0.55);
+  root.style.setProperty('--paper',paper);
+  root.style.setProperty('--accent-soft',accentSoft);
+  root.style.setProperty('--line',line);
+  root.style.setProperty('--muted',muted);
+  // text pe butoane: lizibil indiferent de fond
+  root.style.setProperty('--btn-ink', inchis ? '#f3efe6' : '#2a2620');
+}
+
+let proiecte=[];        // [{id,nume,...stare}]
+let proiectActivId=null;
+let salvTimer=null;
+let modCitire=false;    // false = editare, true = citire
+let selBaraDiv=null;    // blocul cu selectie activa
+
+const PALETA=['#2a2620','#7a5c3e','#9c3b2e','#3a5a40','#2c5d7c','#6a4c93','#b08900','#555555'];
+const PALETA_BG=['#f3efe6','#fbf9f4','#ffffff','#f0f4f0','#eef2f6','#fdf2e9','#1e1e22','#2a2620'];
+
+/* swatches */
+function facSwatches(cont,culori,onpick){
+  culori.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='swatch';b.style.background=c;b.title=c;
+    b.onclick=()=>onpick(c);cont.appendChild(b);
+  });
+}
+facSwatches(document.getElementById('bgSwatches'),PALETA_BG,c=>{bgColor.value=c;bgLum.value=0;aplicaStil();programeazaSalvare();});
+facSwatches(document.getElementById('inkSwatches'),PALETA,c=>{inkColor.value=c;aplicaStil();programeazaSalvare();});
+
+/* ====================== Stil global ====================== */
+function aplicaStil(){
+  const lum=+bgLum.value||0;
+  const bgEfectiv=intunecaCuloare(bgColor.value,lum);
+  root.style.setProperty('--bg',bgEfectiv);
+  root.style.setProperty('--ink',inkColor.value);
+  aplicaTonuriUI(bgEfectiv);
+  // bara de stare a telefonului preia aceeași culoare ca fundalul
+  let mt=document.querySelector('meta[name="theme-color"]');
+  if(!mt){mt=document.createElement('meta');mt.name='theme-color';document.head.appendChild(mt);}
+  mt.setAttribute('content',bgEfectiv);
+  document.getElementById('bgLumVal').textContent=lum+'%';
+  document.getElementById('marimeVal').textContent=marime.value+'px';
+  document.getElementById('spatiereVal').textContent=(+spatiere.value).toFixed(2);
+  continut.querySelectorAll('textarea').forEach(ta=>{
+    ta.style.fontFamily=font.value;
+    ta.style.fontSize=marime.value+'px';
+    ta.style.lineHeight=spatiere.value;
+    autoGrow(ta);
+  });
+  continut.querySelectorAll('.bloc-view').forEach(v=>{
+    v.style.fontFamily=font.value;
+    v.style.fontSize=marime.value+'px';
+    v.style.lineHeight=spatiere.value;
+  });
+  titlu.style.fontFamily=font.value;
+  autoGrow(titlu);
+}
+[font,marime,spatiere,bgLum].forEach(el=>el.addEventListener('input',()=>{aplicaStil();programeazaSalvare();}));
+[bgColor,inkColor].forEach(el=>el.addEventListener('input',()=>{aplicaStil();programeazaSalvare();}));
+
+/* ====================== Panouri (Proiecte / Aspect) ======================
+   Panourile sunt fixate sub bara de sus, deci se vad oriunde ai fi in pagina. */
+const topbarEl=document.querySelector('.topbar');
+function masoaraTopbar(){
+  if(!topbarEl)return;
+  const h=Math.round(topbarEl.getBoundingClientRect().height);
+  if(h>0)root.style.setProperty('--topbar-h',h+'px');
+}
+masoaraTopbar();
+window.addEventListener('resize',masoaraTopbar);
+window.addEventListener('orientationchange',()=>setTimeout(masoaraTopbar,150));
+if(window.ResizeObserver&&topbarEl){new ResizeObserver(masoaraTopbar).observe(topbarEl);}
+
+function inchidePanouri(){
+  document.getElementById('panouProiecte').classList.remove('deschis');
+  document.getElementById('panouSetari').classList.remove('deschis');
+}
+function comutaPanou(id){
+  const p=document.getElementById(id);
+  const eraDeschis=p.classList.contains('deschis');
+  inchidePanouri();
+  if(!eraDeschis){
+    masoaraTopbar();
+    p.classList.add('deschis');
+    p.scrollTop=0;
+  }
+}
+document.getElementById('toggleSetari').onclick=()=>comutaPanou('panouSetari');
+document.getElementById('toggleProiecte').onclick=()=>{
+  randeazaListaProiecte();
+  comutaPanou('panouProiecte');
+};
+/* atingere in afara panoului -> se inchide */
+document.addEventListener('click',e=>{
+  if(!document.querySelector('.panou.deschis'))return;
+  if(e.target.closest('.panou')||e.target.closest('.topbar'))return;
+  inchidePanouri();
+});
+
+/* ====================== Comutator Editare / Citire ====================== */
+function aplicaMod(){
+  document.body.classList.toggle('mod-citire',modCitire);
+  document.body.classList.toggle('mod-editare',!modCitire);
+  const btn=document.getElementById('modToggle');
+  if(modCitire){
+    btn.textContent='📖 Citire';btn.classList.add('citire');
+  }else{
+    btn.textContent='✏️ Editare';btn.classList.remove('citire');
+  }
+  // la intrarea in citire, reconstruim toate view-urile
+  continut.querySelectorAll('.bloc').forEach(b=>{
+    if(b._construiesteView){
+      const ta=b.querySelector('textarea');
+      if(ta)b._text=ta.value;
+      b._construiesteView();
+    }
+  });
+  // la intrarea in editare, recalculam inaltimea textarelor (altfel textul e taiat)
+  if(!modCitire){
+    requestAnimationFrame(()=>{
+      continut.querySelectorAll('.bloc textarea').forEach(ta=>{
+        ta.style.height='auto';
+        ta.style.height=ta.scrollHeight+'px';
+      });
+    });
+  }
+  // ascundem bara de selectie
+  const sb=document.getElementById('selBara');if(sb)sb.classList.remove('activ');
+}
+document.getElementById('modToggle').onclick=()=>{
+  // daca iesim din editare, salvam textul curent din textarea in _text
+  if(!modCitire){
+    continut.querySelectorAll('.bloc').forEach(b=>{
+      const ta=b.querySelector('textarea');
+      if(ta)b._text=ta.value;
+    });
+    salveaza();
+  }
+  modCitire=!modCitire;
+  aplicaMod();
+};
+
+/* bara selectie fraza */
+document.getElementById('selAnuleaza').onclick=()=>{
+  if(selBaraDiv&&selBaraDiv._curataSel)selBaraDiv._curataSel();
+  selBaraDiv=null;
+};
+document.getElementById('selLeaga').onclick=()=>{
+  if(!selBaraDiv)return;
+  const sel=selBaraDiv.querySelectorAll('.cuv.sel-cuvant');
+  if(!sel.length)return;
+  // construim fraza din cuvintele selectate (in ordinea din text)
+  const cuvinte=[...sel].map(s=>s.textContent);
+  const fraza=cuvinte.join(' ').replace(/\s+/g,' ').trim();
+  const blocul=selBaraDiv;
+  deschideAlegereProiect(fraza,(tintaId,cuvT)=>{
+    blocul._legaturi.push({cuvant:fraza,tinta:tintaId||null,cuvantTinta:cuvT||null});
+    if(blocul._construiesteView)blocul._construiesteView();
+    salveaza();
+    if(tintaId&&cuvT)creeazaLegaturaInversa(proiectActivId,fraza,tintaId,cuvT);
+  });
+  if(selBaraDiv._curataSel)selBaraDiv._curataSel();
+  selBaraDiv=null;
+};
+
+/* ====================== Blocuri ====================== */
+function actualizeazaGol(){gol.style.display=continut.children.length?'none':'block';}
+function autoGrow(ta){
+  // salvam pozitia de scroll a paginii ca sa nu sara
+  const sy=window.scrollY;
+  const inaltimeVeche=ta.style.height;
+  ta.style.height='auto';
+  const nou=ta.scrollHeight+'px';
+  // setam doar daca s-a schimbat, ca sa evitam reflow inutil
+  if(nou!==inaltimeVeche)ta.style.height=nou;
+  else ta.style.height=inaltimeVeche;
+  // restauram scroll-ul paginii (Android il muta uneori la 0)
+  if(window.scrollY!==sy)window.scrollTo(0,sy);
+}
+
+function blocText(text='',culoare='',legaturi=[],capitol=false){
+  const div=document.createElement('div');
+  div.className='bloc';div.dataset.tip='text';
+  div._legaturi=legaturi.slice();
+  div._capitol=!!capitol;
+
+  // STRAT 1: editare (textarea)
+  const ta=document.createElement('textarea');
+  ta.placeholder='Scrie aici…';ta.value=text;
+  ta.style.fontFamily=font.value;ta.style.fontSize=marime.value+'px';
+  ta.style.lineHeight=spatiere.value;
+  if(culoare){ta.style.color=culoare;ta.dataset.culoare=culoare;}
+
+  // STRAT 2: vizualizare (cu linkuri albastre)
+  const view=document.createElement('div');
+  view.className='bloc-view';
+  view.style.fontFamily=font.value;view.style.fontSize=marime.value+'px';
+  view.style.lineHeight=spatiere.value;
+  if(culoare)view.style.color=culoare;
+
+  div._text=text;
+
+  function construiesteView(){
+    view.innerHTML='';
+    const txt=div._text||'';
+    if(!txt){
+      view.innerHTML='<span class="view-gol">Atinge ca să scrii…</span>';
+      return;
+    }
+    const txtNorm=faraDiacritice(txt);
+    const legaturiSortate=div._legaturi
+      .map(lg=>({lg,idx:txtNorm.indexOf(faraDiacritice(lg.cuvant||'')),
+                 len:(lg.cuvant||'').length}))
+      .filter(o=>o.idx>=0 && o.len>0)
+      .sort((a,b)=>a.idx-b.idx);
+    // marcam care intervale sunt linkuri
+    function esteLink(i){
+      for(const o of legaturiSortate){if(i>=o.idx && i<o.idx+o.len)return o;}
+      return null;
+    }
+    // randare token cu token (cuvinte si spatii), pastrand legaturile
+    let i=0;
+    const re=/(\s+|[^\s]+)/g;
+    let mt;
+    while((mt=re.exec(txt))!==null){
+      const tok=mt[0];
+      const start=mt.index;
+      const lk=esteLink(start);
+      if(lk && start===lk.idx){
+        // randam tot cuvantul-link
+        const a=document.createElement('span');
+        a.className='leg-link';
+        a.dataset.start=lk.idx;
+        a.dataset.end=lk.idx+lk.len;
+        a.textContent=txt.substr(lk.idx,lk.len);
+        atasLink(a,lk);
+        view.appendChild(a);
+        re.lastIndex=lk.idx+lk.len;
+        continue;
+      }
+      if(lk) continue; // in interiorul unui link deja randat
+      if(/^\s+$/.test(tok)){
+        view.appendChild(document.createTextNode(tok));
+      }else{
+        // cuvant normal -> span selectabil (pt fraza)
+        const w=document.createElement('span');
+        w.className='cuv';
+        w.dataset.start=start;
+        w.dataset.end=start+tok.length;
+        w.textContent=tok;
+        view.appendChild(w);
+      }
+    }
+    view.style.whiteSpace='pre-wrap';
+  }
+  div._construiesteView=construiesteView;
+
+  function atasLink(a,lk){
+    a.onclick=(e)=>{ e.stopPropagation(); if(!modCitire)return; sariLaLegatura(lk.lg,a); };
+    function stergeAceastaLeg(){
+      const lg=lk.lg;
+      const idx=div._legaturi.indexOf(lg);
+      if(idx>=0)div._legaturi.splice(idx,1);
+      stergeLegaturaInversa(lg); // elimina si perechea din proiectul tinta
+      construiesteView();salveaza();
+    }
+    let delTimer=null;
+    a.addEventListener('touchstart',()=>{
+      delTimer=setTimeout(()=>{
+        if(confirm('Ștergi legătura de pe „'+lk.lg.cuvant+'"?')){
+          stergeAceastaLeg();
+        }
+      },600);
+    },{passive:true});
+    a.addEventListener('touchend',()=>clearTimeout(delTimer));
+    a.addEventListener('touchmove',()=>clearTimeout(delTimer));
+    a.addEventListener('dblclick',(e)=>{
+      e.stopPropagation();
+      if(confirm('Ștergi legătura de pe „'+lk.lg.cuvant+'"?')){
+        stergeAceastaLeg();
+      }
+    });
+  }
+
+  function intraEditare(){
+    div._text=ta.value;
+    autoGrow(ta);ta.focus();
+  }
+  function iesEditare(){
+    div._text=ta.value;
+    construiesteView();
+    programeazaSalvare();
+  }
+  ta.addEventListener('input',()=>{div._text=ta.value;autoGrow(ta);programeazaSalvare();});
+  ta.addEventListener('blur',iesEditare);
+
+  // ===== selectie fraza in MOD CITIRE =====
+  let selStart=null, selEnd=null; // span-uri .cuv
+  function curataSel(){
+    view.querySelectorAll('.cuv.sel-cuvant').forEach(s=>s.classList.remove('sel-cuvant'));
+    selStart=null;selEnd=null;
+    document.getElementById('selBara').classList.remove('activ');
+  }
+  div._curataSel=curataSel;
+  function aplicaSelectie(){
+    view.querySelectorAll('.cuv').forEach(s=>s.classList.remove('sel-cuvant'));
+    if(!selStart)return;
+    const a=parseInt(selStart.dataset.start);
+    const b=selEnd?parseInt(selEnd.dataset.end):parseInt(selStart.dataset.end);
+    const lo=Math.min(a,b), hi=Math.max(a,b);
+    view.querySelectorAll('.cuv').forEach(s=>{
+      const st=parseInt(s.dataset.start), en=parseInt(s.dataset.end);
+      if(st>=lo && en<=hi)s.classList.add('sel-cuvant');
+    });
+    document.getElementById('selBara').classList.add('activ');
+    selBaraDiv=div; // retinem blocul activ pt legare
+  }
+
+  let lpTimer=null,lpMutat=false,lpX=0,lpY=0;
+  view.addEventListener('touchstart',(e)=>{
+    if(!modCitire)return;
+    if(e.target.classList.contains('leg-link'))return;
+    const t=e.touches[0];lpX=t.clientX;lpY=t.clientY;lpMutat=false;
+    const cuvElem=e.target.closest('.cuv');
+    lpTimer=setTimeout(()=>{
+      if(lpMutat||!cuvElem)return;
+      navigator.vibrate&&navigator.vibrate(25);
+      selStart=cuvElem;selEnd=cuvElem;
+      aplicaSelectie();
+    },500);
+  },{passive:true});
+  view.addEventListener('touchmove',(e)=>{
+    const t=e.touches[0];
+    if(Math.abs(t.clientX-lpX)>10||Math.abs(t.clientY-lpY)>10)lpMutat=true;
+    clearTimeout(lpTimer);
+  },{passive:true});
+  view.addEventListener('touchend',()=>clearTimeout(lpTimer));
+  // tap pe cuvant cand exista selectie -> extinde selectia
+  view.addEventListener('click',(e)=>{
+    if(!modCitire)return;
+    const cuvElem=e.target.closest('.cuv');
+    if(selStart && cuvElem){
+      selEnd=cuvElem;
+      aplicaSelectie();
+    }
+  });
+
+  // unelte
+  const tools=document.createElement('div');tools.className='tools';
+  const colWrap=document.createElement('button');colWrap.className='tool';colWrap.title='Culoare text';
+  const colInput=document.createElement('input');colInput.type='color';
+  colInput.value=culoare||inkColor.value;
+  colInput.addEventListener('input',()=>{
+    ta.style.color=colInput.value;ta.dataset.culoare=colInput.value;
+    view.style.color=colInput.value;programeazaSalvare();
+  });
+  colWrap.appendChild(colInput);
+  // buton: marcheaza acest bloc drept capitol (titlu de cuprins)
+  const capBtn=document.createElement('button');
+  capBtn.className='tool';capBtn.textContent='📑';capBtn.title='Marchează drept capitol (cuprins)';
+  function actualizeazaCapitol(){
+    div.classList.toggle('e-capitol',div._capitol);
+    capBtn.classList.toggle('activ',div._capitol);
+  }
+  capBtn.onclick=()=>{
+    div._capitol=!div._capitol;
+    actualizeazaCapitol();
+    programeazaSalvare();
+  };
+  actualizeazaCapitol();
+  const del=document.createElement('button');del.className='tool';del.textContent='×';del.title='Șterge';
+  del.onclick=()=>{div.remove();actualizeazaGol();programeazaSalvare();};
+  tools.append(colWrap,capBtn,del);
+
+  div.append(ta,view,tools);
+  continut.appendChild(div);
+  construiesteView();
+  actualizeazaGol();
+  // un bloc nou (gol) intra direct in editare
+  if(!text){intraEditare();}
+  programeazaSalvare();
+}
+
+function blocPoza(dataURL){
+  const div=document.createElement('div');
+  div.className='bloc';div.dataset.tip='poza';
+  const img=document.createElement('img');
+  img.src=dataURL;img.alt='poză';
+  img.addEventListener('click',()=>deschideLightbox(dataURL));
+  const tools=document.createElement('div');tools.className='tools';
+  const del=document.createElement('button');del.className='tool';del.textContent='×';del.title='Șterge';
+  del.onclick=()=>{div.remove();actualizeazaGol();programeazaSalvare();};
+  tools.appendChild(del);
+  div.append(img,tools);
+  continut.appendChild(div);
+  actualizeazaGol();programeazaSalvare();
+}
+
+document.getElementById('addText').onclick=()=>blocText();
+document.getElementById('addPoza').onclick=()=>fileInput.click();
+fileInput.onchange=e=>{
+  [...e.target.files].forEach(f=>{
+    const r=new FileReader();r.onload=()=>blocPoza(r.result);r.readAsDataURL(f);
+  });
+  fileInput.value='';
+};
+titlu.addEventListener('keydown',e=>{
+  if(e.key==='Enter')e.preventDefault();
+});
+titlu.addEventListener('input',()=>{
+  autoGrow(titlu);
+  programeazaSalvare();
+  numeProiectBar.textContent=titlu.value||'Articol';
+});
+
+/* ====================== Lightbox (pan + pinch) ====================== */
+const lightbox=document.getElementById('lightbox');
+const lbImg=document.getElementById('lbImg');
+let lb={scale:1,x:0,y:0,baseScale:1,natW:0,natH:0};
+
+function deschideLightbox(src){
+  const probe=new Image();
+  probe.onload=()=>{
+    lb.natW=probe.naturalWidth;lb.natH=probe.naturalHeight;
+    lbImg.src=src;
+    lbImg.style.width=lb.natW+'px';
+    lbImg.style.height=lb.natH+'px';
+    const sw=window.innerWidth, sh=window.innerHeight;
+    lb.baseScale=Math.min(sw/lb.natW, sh/lb.natH, 1);
+    lb.scale=lb.baseScale;
+    lb.x=(sw-lb.natW*lb.scale)/2;
+    lb.y=(sh-lb.natH*lb.scale)/2;
+    aplicaTransformLb();
+    lightbox.classList.add('activ');
+  };
+  probe.src=src;
+}
+function aplicaTransformLb(){
+  lbImg.style.transform='translate('+lb.x+'px,'+lb.y+'px) scale('+lb.scale+')';
+}
+function inchideLightbox(){lightbox.classList.remove('activ');lbImg.src='';}
+
+/* gesturi: alegem UN singur drum — pointer DACA exista, altfel touch */
+let pointers=new Map();
+let startDist=0, startScale=1, startX=0, startY=0;
+let tapStartX=0, tapStartY=0, sMutat=false;
+
+function gestStart(id,x,y){
+  pointers.set(id,{x,y});
+  if(pointers.size===1){
+    startX=x-lb.x;startY=y-lb.y;
+    tapStartX=x;tapStartY=y;sMutat=false;
+  }else if(pointers.size===2){
+    sMutat=true;
+    const p=[...pointers.values()];
+    startDist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+    startScale=lb.scale;
+  }
+}
+function gestMove(id,x,y){
+  if(!pointers.has(id))return;
+  pointers.set(id,{x,y});
+  const p=[...pointers.values()];
+  if(pointers.size===1){
+    if(Math.hypot(x-tapStartX,y-tapStartY)>10)sMutat=true;
+    lb.x=x-startX;lb.y=y-startY;
+    aplicaTransformLb();
+  }else if(pointers.size>=2){
+    const dist=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+    const midX=(p[0].x+p[1].x)/2, midY=(p[0].y+p[1].y)/2;
+    let ns=startScale*(dist/startDist);
+    ns=Math.max(lb.baseScale*0.5,Math.min(ns,8));
+    const k=ns/lb.scale;
+    lb.x=midX-(midX-lb.x)*k;
+    lb.y=midY-(midY-lb.y)*k;
+    lb.scale=ns;
+    aplicaTransformLb();
+  }
+}
+function gestEnd(id){
+  pointers.delete(id);
+  if(pointers.size===1){
+    const p=[...pointers.values()][0];
+    startX=p.x-lb.x;startY=p.y-lb.y;
+  }
+}
+
+if(window.PointerEvent){
+  /* --- drumul POINTER (Android, Chrome, Brave, Safari modern) --- */
+  lightbox.addEventListener('pointerdown',e=>{
+    lightbox.setPointerCapture(e.pointerId);
+    gestStart(e.pointerId,e.clientX,e.clientY);
+  });
+  lightbox.addEventListener('pointermove',e=>gestMove(e.pointerId,e.clientX,e.clientY));
+  lightbox.addEventListener('pointerup',e=>gestEnd(e.pointerId));
+  lightbox.addEventListener('pointercancel',e=>gestEnd(e.pointerId));
+}else{
+  /* --- drumul TOUCH (rezerva pt. iPad/vizualizatoare vechi) --- */
+  lightbox.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches)gestStart(t.identifier,t.clientX,t.clientY);
+  },{passive:false});
+  lightbox.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches)gestMove(t.identifier,t.clientX,t.clientY);
+  },{passive:false});
+  function touchEnd(e){
+    for(const t of e.changedTouches)gestEnd(t.identifier);
+  }
+  lightbox.addEventListener('touchend',touchEnd);
+  lightbox.addEventListener('touchcancel',touchEnd);
+}
+
+/* tap simplu (fără pan, fără pinch) = închide */
+lbImg.addEventListener('click',()=>{
+  if(!sMutat)inchideLightbox();
+});
+
+/* ====================== Proiecte ====================== */
+function stareCurenta(){
+  const blocuri=[...continut.children].map(b=>{
+    if(b.dataset.tip==='text'){
+      const ta=b.querySelector('textarea');
+      const txt=(typeof b._text==='string')?b._text:(ta?ta.value:'');
+      return {tip:'text',text:txt,culoare:(ta&&ta.dataset.culoare)||'',
+        legaturi:(b._legaturi||[]).slice(),capitol:!!b._capitol};
+    }
+    return {tip:'poza',src:b.querySelector('img').src};
+  });
+  return {
+    id:proiectActivId,
+    nume:titlu.value||'Articol',
+    titlu:titlu.value,
+    font:font.value,marime:marime.value,spatiere:spatiere.value,
+    bg:bgColor.value,ink:inkColor.value,bgLum:bgLum.value,
+    actualizat:Date.now(),
+    blocuri
+  };
+}
+function programeazaSalvare(){
+  clearTimeout(salvTimer);
+  salvTimer=setTimeout(salveaza,400);
+}
+async function salveaza(){
+  if(proiectActivId==null)return;
+  const idx=proiecte.findIndex(p=>p.id===proiectActivId);
+  if(idx<0)return; // proiectul nu mai exista (tocmai a fost sters) - nu-l re-crea
+  const s=stareCurenta();
+  proiecte[idx]=s;
+  try{await idbPut(s);}catch(e){console.error(e);}
+}
+
+function incarcaInEditor(p){
+  continut.innerHTML='';
+  titlu.value=p.titlu||'';
+  numeProiectBar.textContent=p.nume||p.titlu||'Articol';
+  if(p.font)font.value=p.font;
+  if(p.marime)marime.value=p.marime;
+  if(p.spatiere)spatiere.value=p.spatiere;
+  if(p.bg)bgColor.value=p.bg;
+  if(p.ink)inkColor.value=p.ink;
+  bgLum.value=p.bgLum||0;
+  aplicaStil();
+  (p.blocuri||[]).forEach(b=>{
+    if(b.tip==='text')blocText(b.text,b.culoare,b.legaturi||[],b.capitol);
+    else blocPoza(b.src);
+  });
+  actualizeazaGol();
+  aplicaMod();
+}
+
+async function comutaProiect(id,tintaCuvant){
+  // deja suntem in acest proiect: nu reincarcam nimic, doar derulam la tinta
+  if(id===proiectActivId){
+    inchidePanouri();
+    randeazaListaProiecte();
+    if(tintaCuvant)requestAnimationFrame(()=>evidentiazaTinta(tintaCuvant));
+    else window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  await salveaza();
+  proiectActivId=id;
+  // reincarc din IDB ca sa iau ultima versiune (cu eventuale legaturi inverse)
+  let p;
+  try{
+    const proaspat=await idbGet(id);
+    if(proaspat){
+      const idx=proiecte.findIndex(x=>x.id===id);
+      if(idx>=0)proiecte[idx]=proaspat;
+      p=proaspat;
+    }
+  }catch(e){}
+  if(!p)p=proiecte.find(x=>x.id===id);
+  if(p)incarcaInEditor(p);
+  randeazaListaProiecte();
+  inchidePanouri();
+  if(tintaCuvant){
+    setTimeout(()=>evidentiazaTinta(tintaCuvant),320);
+  }else{
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+
+/* sare la legatura: in aceeasi pagina doar deruleaza, altfel comuta proiectul */
+function sariLaLegatura(lg,sursaEl){
+  if(!lg.tinta || lg.tinta===proiectActivId){
+    if(lg.cuvantTinta)evidentiazaTinta(lg.cuvantTinta,sursaEl);
+    else if(lg.tinta)window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  comutaProiect(lg.tinta, lg.cuvantTinta||null);
+}
+
+/* creeaza legatura inversa in proiectul tinta (bidirectional) */
+async function creeazaLegaturaInversa(sursaId, cuvantSursa, tintaId, cuvantTinta){
+  if(!tintaId || !cuvantTinta)return; // fara cuvant tinta, nu putem face inversa
+  // tinta e chiar pagina deschisa -> lucram direct pe blocurile vii
+  if(tintaId===proiectActivId){
+    const blocuri=[...continut.children].filter(b=>b.dataset.tip==='text');
+    const qn=faraDiacritice(cuvantTinta);
+    for(const b of blocuri){
+      const txt=(typeof b._text==='string')?b._text:'';
+      if(faraDiacritice(txt).indexOf(qn)<0)continue;
+      b._legaturi=b._legaturi||[];
+      const exista=b._legaturi.some(l=>l.cuvant===cuvantTinta && l.tinta===sursaId);
+      if(!exista){
+        b._legaturi.push({cuvant:cuvantTinta,tinta:sursaId,cuvantTinta:cuvantSursa});
+        if(b._construiesteView)b._construiesteView();
+        salveaza();
+      }
+      return;
+    }
+    return;
+  }
+  const pt=proiecte.find(p=>p.id===tintaId);
+  if(!pt)return;
+  // gasim blocul de text din tinta care contine cuvantTinta
+  const blocuri=pt.blocuri||[];
+  for(const b of blocuri){
+    if(b.tip!=='text')continue;
+    if(faraDiacritice(b.text).indexOf(faraDiacritice(cuvantTinta))<0)continue;
+    b.legaturi=b.legaturi||[];
+    // evitam dublura
+    const exista=b.legaturi.some(l=>l.cuvant===cuvantTinta && l.tinta===sursaId);
+    if(!exista){
+      b.legaturi.push({cuvant:cuvantTinta,tinta:sursaId,cuvantTinta:cuvantSursa});
+      pt.actualizat=Date.now();
+      await idbPut(pt);
+    }
+    return;
+  }
+}
+
+/* sterge legatura-pereche din proiectul tinta (bidirectional la stergere) */
+async function stergeLegaturaInversa(lg){
+  if(!lg || !lg.tinta)return; // fara tinta nu exista pereche
+  // pereche in aceeasi pagina -> o scoatem din blocurile vii
+  if(lg.tinta===proiectActivId){
+    let schimbat=false;
+    [...continut.children].filter(b=>b.dataset.tip==='text').forEach(b=>{
+      if(!b._legaturi)return;
+      for(let i=b._legaturi.length-1;i>=0;i--){
+        const l=b._legaturi[i];
+        if(l.tinta!==proiectActivId)continue;
+        const potrivesteCuv=(!lg.cuvantTinta || l.cuvant===lg.cuvantTinta);
+        const potrivesteInvers=(!lg.cuvant || !l.cuvantTinta || l.cuvantTinta===lg.cuvant);
+        if(potrivesteCuv && potrivesteInvers){
+          b._legaturi.splice(i,1);
+          if(b._construiesteView)b._construiesteView();
+          schimbat=true;
+        }
+      }
+    });
+    if(schimbat)salveaza();
+    return;
+  }
+  const pt=proiecte.find(p=>p.id===lg.tinta);
+  if(!pt)return;
+  let schimbat=false;
+  for(const b of (pt.blocuri||[])){
+    if(b.tip!=='text' || !b.legaturi)continue;
+    // pereche = legatura care duce inapoi spre proiectul curent
+    // si (daca stim cuvintele) potriveste cuvintele in oglinda
+    for(let i=b.legaturi.length-1;i>=0;i--){
+      const l=b.legaturi[i];
+      if(l.tinta!==proiectActivId)continue;
+      const potrivesteCuv=(!lg.cuvantTinta || l.cuvant===lg.cuvantTinta);
+      const potrivesteInvers=(!lg.cuvant || !l.cuvantTinta || l.cuvantTinta===lg.cuvant);
+      if(potrivesteCuv && potrivesteInvers){
+        b.legaturi.splice(i,1);
+        schimbat=true;
+      }
+    }
+  }
+  if(schimbat){
+    pt.actualizat=Date.now();
+    try{await idbPut(pt);}catch(e){console.error(e);}
+  }
+}
+
+/* ============ Evidentiere tinta: deruleaza SI lumineaza galben ============ */
+function flashElement(el){
+  if(!el)return;
+  el.classList.remove('flash-tinta');
+  void el.offsetWidth;              // reporneste animatia
+  el.classList.add('flash-tinta');
+  setTimeout(()=>el.classList.remove('flash-tinta'),2000);
+}
+
+/* deruleaza la portiunea [st,en) din blocul b si o lumineaza */
+function aratePortiune(b,st,en){
+  if(modCitire){
+    const view=b.querySelector('.bloc-view');
+    if(view){
+      const bucati=[...view.querySelectorAll('[data-start]')].filter(s=>{
+        const a=+s.dataset.start, z=+s.dataset.end;
+        return z>st && a<en;
+      });
+      if(bucati.length){
+        bucati[0].scrollIntoView({behavior:'smooth',block:'center'});
+        bucati.forEach(flashElement);
+        return;
+      }
+      view.scrollIntoView({behavior:'smooth',block:'center'});
+      flashElement(view);
+      return;
+    }
+  }
+  // mod editare: derulam la bloc si il luminam (textul e in textarea)
+  b.scrollIntoView({behavior:'smooth',block:'center'});
+  flashElement(b);
+  const ta=b.querySelector('textarea');
+  if(ta&&ta.setSelectionRange){try{ta.setSelectionRange(st,en);}catch(e){}}
+}
+
+/* gaseste cuvantul/fraza in proiectul curent, deruleaza la el si il lumineaza.
+   sursaEl = linkul de pe care am pornit (ca sa nu sarim pe noi insine) */
+function evidentiazaTinta(cuvant,sursaEl){
+  const qn=faraDiacritice(cuvant||'');
+  if(!qn)return false;
+  let blocSursa=null, exSt=-1, exEn=-1;
+  if(sursaEl){
+    blocSursa=sursaEl.closest('.bloc');
+    const a=parseInt(sursaEl.dataset.start), z=parseInt(sursaEl.dataset.end);
+    if(!isNaN(a)&&!isNaN(z)){exSt=a;exEn=z;}
+  }
+  const blocuri=[...continut.children].filter(b=>b.dataset.tip==='text');
+  for(const b of blocuri){
+    const txt=(typeof b._text==='string')?b._text:'';
+    const norm=faraDiacritice(txt);
+    let from=0, idx;
+    while((idx=norm.indexOf(qn,from))>=0){
+      const st=idx, en=idx+qn.length;
+      // sarim peste chiar cuvantul de pe care am plecat
+      if(b===blocSursa && exSt>=0 && en>exSt && st<exEn){from=idx+1;continue;}
+      aratePortiune(b,st,en);
+      return true;
+    }
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+  return false;
+}
+
+function projNou(){
+  const id='p'+Date.now();
+  const p={id,nume:'Proiect nou',titlu:'',font:font.value,
+    marime:marime.value,spatiere:spatiere.value,
+    bg:bgColor.value,ink:inkColor.value,blocuri:[],actualizat:Date.now()};
+  proiecte.push(p);
+  idbPut(p);
+  comutaProiect(id);
+}
+document.getElementById('proiectNou').onclick=projNou;
+
+async function stergeProiect(id){
+  if(!confirm('Ștergi acest proiect definitiv?'))return;
+  await idbDelete(id);
+  proiecte=proiecte.filter(p=>p.id!==id);
+  if(proiectActivId===id){
+    // esential: golim proiectActivId ACUM, inainte de comutare.
+    // altfel comutaProiect()/projNou() apeleaza salveaza(), care mai vede
+    // vechiul id activ + continutul lui inca in DOM si il rescrie in IndexedDB
+    // -- exact motivul pentru care proiectul sters "reaparea" la redeschidere.
+    proiectActivId=null;
+    if(proiecte.length){comutaProiect(proiecte[0].id);}
+    else{projNou();}
+  }
+  randeazaListaProiecte();
+}
+
+function randeazaListaProiecte(){
+  const lista=document.getElementById('projList');
+  lista.innerHTML='';
+  proiecte.slice().sort((a,b)=>b.actualizat-a.actualizat).forEach(p=>{
+    const row=document.createElement('div');
+    row.className='proj'+(p.id===proiectActivId?' activ':'');
+    const nume=document.createElement('input');
+    nume.className='proj-nume';nume.value=p.nume||p.titlu||'(fără titlu)';
+    nume.readOnly=true; // implicit doar deschide
+    nume.onclick=()=>{ if(nume.readOnly)comutaProiect(p.id); };
+    nume.onchange=()=>{
+      p.nume=nume.value;
+      if(p.id===proiectActivId)numeProiectBar.textContent=nume.value;
+      idbPut(p);
+    };
+    nume.onblur=()=>{nume.readOnly=true;};
+    const redenum=document.createElement('button');
+    redenum.className='mini';redenum.textContent='✏️';redenum.title='Redenumește';
+    redenum.onclick=(e)=>{
+      e.stopPropagation();
+      nume.readOnly=false;nume.focus();nume.select();
+    };
+    const sterge=document.createElement('button');
+    sterge.className='mini';sterge.textContent='×';sterge.title='Șterge';
+    sterge.onclick=(e)=>{e.stopPropagation();stergeProiect(p.id);};
+    row.append(nume,redenum,sterge);
+    lista.appendChild(row);
+  });
+}
+
+/* ====================== Căutare globală (fără diacritice) ====================== */
+function faraDiacritice(s){
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/ş/g,'s').replace(/ţ/g,'t').replace(/Ş/g,'S').replace(/Ţ/g,'T')
+    .toLowerCase();
+}
+function textProiect(p){
+  return (p.blocuri||[]).filter(b=>b.tip==='text').map(b=>b.text).join(' \n ');
+}
+/* pentru proiectul deschis luam textul viu din blocuri (poate fi nesalvat inca) */
+function textProiectLive(p){
+  if(p && p.id===proiectActivId){
+    return [...continut.children].filter(b=>b.dataset.tip==='text')
+      .map(b=>{
+        if(typeof b._text==='string')return b._text;
+        const ta=b.querySelector('textarea');return ta?ta.value:'';
+      }).join(' \n ');
+  }
+  return textProiect(p);
+}
+function fragmentCuMarcaj(text,qNorm,qLen){
+  // gaseste pozitia in textul normalizat, dar afiseaza textul original
+  const norm=faraDiacritice(text);
+  const idx=norm.indexOf(qNorm);
+  if(idx<0)return null;
+  const start=Math.max(0,idx-25);
+  const end=Math.min(text.length,idx+qLen+35);
+  let frag=text.slice(start,end).replace(/\n/g,' ');
+  // marcheaza portiunea gasita (aproximativ, pe text original)
+  const orig=text.slice(idx,idx+qLen);
+  frag=esc(frag);
+  const origEsc=esc(orig);
+  frag=frag.replace(origEsc,'<mark>'+origEsc+'</mark>');
+  return (start>0?'…':'')+frag+(end<text.length?'…':'');
+}
+function ruleazaCautare(){
+  const q=document.getElementById('cautare').value.trim();
+  const rez=document.getElementById('cautaRez');
+  rez.innerHTML='';
+  if(!q){return;}
+  const qNorm=faraDiacritice(q);
+  const qLen=q.length;
+  let gasite=0;
+  proiecte.slice().sort((a,b)=>b.actualizat-a.actualizat).forEach(p=>{
+    const textul=textProiectLive(p);
+    const hayTitlu=faraDiacritice((p.nume||'')+' '+(p.titlu||''));
+    const hayText=faraDiacritice(textul);
+    const inText=hayText.indexOf(qNorm)>=0;
+    if(hayTitlu.indexOf(qNorm)<0 && !inText)return;
+    gasite++;
+    const hit=document.createElement('div');
+    hit.className='cauta-hit';
+    const t=document.createElement('div');
+    t.className='h-titlu';t.textContent=p.nume||p.titlu||'(fără titlu)';
+    hit.appendChild(t);
+    const frag=fragmentCuMarcaj(textul,qNorm,qLen);
+    if(frag){
+      const f=document.createElement('div');
+      f.className='h-frag';f.innerHTML=frag;
+      hit.appendChild(f);
+    }
+    hit.onclick=()=>{
+      // deschide proiectul SI deruleaza exact la cuvantul/fraza cautata
+      comutaProiect(p.id, inText?q:null);
+      document.getElementById('cautare').value='';
+      rez.innerHTML='';
+    };
+    rez.appendChild(hit);
+  });
+  if(!gasite){
+    const g=document.createElement('div');
+    g.className='cauta-gol';g.textContent='Niciun rezultat pentru „'+q+'".';
+    rez.appendChild(g);
+  }
+}
+document.getElementById('cautare').addEventListener('input',ruleazaCautare);
+
+/* ====================== Dialog legătură ====================== */
+function deschideAlegereProiect(cuvant,onAlege){
+  const fundal=document.getElementById('dialogLeg');
+  const lista=document.getElementById('dialogProiecte');
+  document.getElementById('dialogSub').textContent='Cuvânt sursă: „'+cuvant+'"';
+  lista.innerHTML='';
+
+  function pasProiecte(){
+    document.querySelector('#dialogLeg h3').textContent='Leagă către…';
+    lista.innerHTML='';
+    // 1) legatura in ACEEASI pagina
+    const pCurent=proiecte.find(p=>p.id===proiectActivId)||
+                  {id:proiectActivId,nume:titlu.value||'Articol'};
+    const bCurent=document.createElement('button');
+    bCurent.className='d-proj';
+    bCurent.innerHTML='📍 <b>Aceeași pagină</b> — alt cuvânt din acest articol';
+    bCurent.onclick=()=>pasCuvant(pCurent,true);
+    lista.appendChild(bCurent);
+    // 2) celelalte proiecte
+    proiecte.slice().sort((a,b)=>b.actualizat-a.actualizat).forEach(p=>{
+      if(p.id===proiectActivId)return;
+      const b=document.createElement('button');
+      b.className='d-proj';b.textContent=p.nume||p.titlu||'(fără titlu)';
+      b.onclick=()=>pasCuvant(p,false);
+      lista.appendChild(b);
+    });
+    if(lista.children.length===1){
+      const g=document.createElement('div');
+      g.className='cauta-gol';
+      g.textContent='Nu ai alt proiect; poți lega în aceeași pagină.';
+      lista.appendChild(g);
+    }
+  }
+
+  function pasCuvant(p,aceeasiPagina){
+    document.querySelector('#dialogLeg h3').textContent=aceeasiPagina
+      ? 'În aceeași pagină, spre…'
+      : 'În „'+(p.nume||p.titlu||'proiect')+'", spre…';
+    lista.innerHTML='';
+    // optiunea: inceputul paginii
+    const sus=document.createElement('button');
+    sus.className='d-proj';
+    sus.textContent=aceeasiPagina
+      ? '↑ Începutul paginii (fără cuvânt anume)'
+      : '↑ Începutul proiectului (fără cuvânt anume)';
+    sus.onclick=()=>{onAlege(p.id,null);fundal.classList.remove('activ');};
+    lista.appendChild(sus);
+    // camp de cautare cuvant tinta
+    const inp=document.createElement('input');
+    inp.className='cauta-input';
+    inp.placeholder=aceeasiPagina
+      ? 'scrie cuvântul-țintă din această pagină…'
+      : 'scrie cuvântul-țintă din acel proiect…';
+    inp.style.margin='.5rem 0';
+    lista.appendChild(inp);
+    const rez=document.createElement('div');rez.className='cauta-rez';lista.appendChild(rez);
+    const textP=aceeasiPagina?textProiectLive(p):textProiect(p);
+    inp.addEventListener('input',()=>{
+      rez.innerHTML='';
+      const q=inp.value.trim();
+      if(!q)return;
+      const qn=faraDiacritice(q);
+      // in aceeasi pagina nu are sens sa legi cuvantul de el insusi
+      if(aceeasiPagina && qn===faraDiacritice(cuvant)){
+        const g=document.createElement('div');
+        g.className='cauta-gol';
+        g.textContent='Alege alt cuvânt decât cel selectat.';
+        rez.appendChild(g);
+        return;
+      }
+      const frag=fragmentCuMarcaj(textP,qn,q.length);
+      const gasit=faraDiacritice(textP).indexOf(qn)>=0;
+      if(gasit){
+        const hit=document.createElement('button');
+        hit.className='d-proj';
+        hit.innerHTML='✓ leagă spre: <b>'+esc(q)+'</b>'+(frag?'<br><span style="color:var(--muted);font-size:.82rem">'+frag+'</span>':'');
+        hit.onclick=()=>{onAlege(p.id,q);fundal.classList.remove('activ');};
+        rez.appendChild(hit);
+      }else{
+        const g=document.createElement('div');
+        g.className='cauta-gol';
+        g.textContent=aceeasiPagina
+          ? 'Nu există „'+q+'" în această pagină.'
+          : 'Nu există „'+q+'" în acel proiect.';
+        rez.appendChild(g);
+      }
+    });
+  }
+
+  pasProiecte();
+  fundal.classList.add('activ');
+}
+document.getElementById('dialogAnuleaza').onclick=()=>
+  document.getElementById('dialogLeg').classList.remove('activ');
+document.getElementById('dialogLeg').addEventListener('click',e=>{
+  if(e.target.id==='dialogLeg')e.currentTarget.classList.remove('activ');
+});
+
+/* ====================== Export & Backup ====================== */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function descarca(blob,nume){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=nume;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},3000);
+}
+function numeFisier(s,implicit){
+  return ((s||'').replace(/[^\p{L}\p{N}\-_ ]/gu,'').trim()||implicit);
+}
+function dataFisier(){
+  const d=new Date(),z=n=>('0'+n).slice(-2);
+  return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'_'+z(d.getHours())+z(d.getMinutes());
+}
+
+/* --- meniul de export --- */
+const dialogExport=document.getElementById('dialogExport');
+document.getElementById('export').onclick=()=>dialogExport.classList.add('activ');
+document.getElementById('expAnuleaza').onclick=()=>dialogExport.classList.remove('activ');
+dialogExport.addEventListener('click',e=>{
+  if(e.target.id==='dialogExport')e.currentTarget.classList.remove('activ');
+});
+document.getElementById('expArticol').onclick=()=>{dialogExport.classList.remove('activ');exportaHTML(true);};
+document.getElementById('expToate').onclick=()=>{dialogExport.classList.remove('activ');exportaHTML(false);};
+document.getElementById('expJSON').onclick=()=>{dialogExport.classList.remove('activ');backupJSON();};
+document.getElementById('impJSON').onclick=()=>{
+  dialogExport.classList.remove('activ');
+  document.getElementById('fileJSON').click();
+};
+
+/* --- 1. BACKUP TOTAL (JSON) --- */
+async function backupJSON(){
+  await salveaza();
+  const date={
+    aplicatie:'editor-articol',
+    versiune:1,
+    exportat:new Date().toISOString(),
+    proiectActiv:proiectActivId,
+    proiecte:proiecte
+  };
+  const blob=new Blob([JSON.stringify(date)],{type:'application/json'});
+  descarca(blob,'backup-editor_'+dataFisier()+'.json');
+}
+
+/* --- 2. RECUPERARE (JSON) --- */
+let dateRecuperare=null;
+const dialogRecup=document.getElementById('dialogRecup');
+document.getElementById('fileJSON').onchange=e=>{
+  const f=e.target.files[0];
+  e.target.value='';
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let date;
+    try{date=JSON.parse(r.result);}catch(err){alert('Fișierul nu este un backup JSON valid.');return;}
+    const lista=Array.isArray(date)?date:(date&&date.proiecte);
+    if(!Array.isArray(lista)||!lista.length){alert('Nu am găsit proiecte în acest fișier.');return;}
+    dateRecuperare=lista.filter(p=>p&&typeof p==='object');
+    const nrBlocuri=dateRecuperare.reduce((s,p)=>s+((p.blocuri||[]).length),0);
+    document.getElementById('recupSub').textContent=
+      'Fișierul conține '+dateRecuperare.length+' proiect(e), '+nrBlocuri+' blocuri. Cum le adaug?';
+    dialogRecup.classList.add('activ');
+  };
+  r.onerror=()=>alert('Nu am putut citi fișierul.');
+  r.readAsText(f);
+};
+document.getElementById('recupAnuleaza').onclick=()=>{
+  dateRecuperare=null;dialogRecup.classList.remove('activ');
+};
+dialogRecup.addEventListener('click',e=>{
+  if(e.target.id==='dialogRecup')e.currentTarget.classList.remove('activ');
+});
+document.getElementById('recupInlocuieste').onclick=()=>recupereaza('inlocuieste');
+document.getElementById('recupAdauga').onclick=()=>recupereaza('adauga');
+
+function normalizeazaProiect(p){
+  const blocuri=(p.blocuri||[]).filter(b=>b&&typeof b==='object').map(b=>{
+    if(b.tip==='poza')return {tip:'poza',src:b.src||''};
+    return {tip:'text',text:typeof b.text==='string'?b.text:'',
+      culoare:b.culoare||'',
+      legaturi:Array.isArray(b.legaturi)?b.legaturi.filter(l=>l&&l.cuvant).map(l=>({
+        cuvant:l.cuvant,tinta:l.tinta||null,cuvantTinta:l.cuvantTinta||null})):[],
+      capitol:!!b.capitol};
+  }).filter(b=>b.tip!=='poza'||b.src);
+  return {
+    id:p.id, nume:p.nume||p.titlu||'Proiect', titlu:p.titlu||'',
+    font:p.font||font.value, marime:p.marime||marime.value,
+    spatiere:p.spatiere||spatiere.value, bg:p.bg||bgColor.value,
+    ink:p.ink||inkColor.value, bgLum:p.bgLum||0,
+    actualizat:p.actualizat||Date.now(), blocuri
+  };
+}
+
+async function recupereaza(mod){
+  if(!dateRecuperare)return;
+  if(mod==='inlocuieste' &&
+     !confirm('Sigur? Proiectele actuale ('+proiecte.length+') se șterg definitiv și rămân doar cele din backup.'))return;
+  dialogRecup.classList.remove('activ');
+  const lista=dateRecuperare.map(normalizeazaProiect);
+  dateRecuperare=null;
+  clearTimeout(salvTimer);
+  try{
+    if(mod==='inlocuieste'){
+      proiectActivId=null;                 // ca sa nu mai salveze peste
+      for(const p of proiecte){await idbDelete(p.id);}
+      proiecte=[];
+    }
+    // id-uri: le pastram (ca sa ramana valide legaturile); doar la conflict le schimbam
+    const existente=new Set(proiecte.map(p=>p.id));
+    const harta={};
+    let n=0;
+    lista.forEach(p=>{
+      const vechi=p.id;
+      let id=p.id;
+      if(!id||existente.has(id))id='p'+Date.now()+'-'+(++n);
+      harta[vechi]=id;p.id=id;existente.add(id);
+    });
+    // rescriem tintele legaturilor pe id-urile noi
+    lista.forEach(p=>(p.blocuri||[]).forEach(b=>{
+      (b.legaturi||[]).forEach(l=>{if(l.tinta&&harta[l.tinta])l.tinta=harta[l.tinta];});
+    }));
+    for(const p of lista){await idbPut(p);proiecte.push(p);}
+    proiecte.sort((a,b)=>b.actualizat-a.actualizat);
+    const deDeschis=lista[0];
+    proiectActivId=deDeschis.id;
+    incarcaInEditor(deDeschis);
+    randeazaListaProiecte();
+    alert('Gata: '+lista.length+' proiect(e) recuperate.');
+  }catch(err){
+    console.error(err);
+    alert('Recuperarea a eșuat: '+(err&&err.message||err));
+  }
+}
+
+/* --- 3. EXPORT HTML (un articol sau toate, cu legaturile active) --- */
+async function exportaHTML(doarCurent){
+  await salveaza();
+  let lista;
+  if(doarCurent){
+    lista=proiecte.filter(p=>p.id===proiectActivId);
+    if(!lista.length){alert('Nu am ce exporta.');return;}
+  }else{
+    lista=proiecte.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+    if(!lista.length){alert('Nu ai niciun proiect.');return;}
+  }
+  const t=doarCurent
+    ? ((lista[0].titlu||lista[0].nume||'Articol').trim())
+    : 'Toate proiectele';
+  const {body,capitole}=construiesteCorpExport(lista);
+  const doc=exportTemplate(t,body,capitole);
+  const blob=new Blob([doc],{type:'text/html'});
+  descarca(blob,(doarCurent?numeFisier(t,'articol'):'toate-proiectele_'+dataFisier())+'.html');
+}
+
+/* adauga un interval de marcaj, unind cele identice */
+function adaugaInterval(lista,it){
+  const g=lista.find(x=>x.st===it.st&&x.en===it.en);
+  if(g){
+    if(it.href&&!g.href)g.href=it.href;
+    if(it.id&&!g.id)g.id=it.id;
+    if(it.ext)g.ext=true;
+    return;
+  }
+  lista.push(it);
+}
+
+/* randeaza textul unui bloc, cu ancore si legaturi */
+function randeazaBlocCuLegaturi(text,intervale){
+  intervale=intervale.slice().sort((a,b)=>a.st-b.st);
+  let out='',poz=0;
+  const bucata=s=>esc(s).replace(/\n/g,'<br>');
+  for(const it of intervale){
+    if(it.st<poz)continue;                 // suprapunere -> o sarim
+    out+=bucata(text.slice(poz,it.st));
+    const cuv=esc(text.slice(it.st,it.en));
+    if(it.href)out+='<a href="'+it.href+'"'+(it.id?' id="'+it.id+'"':'')+'>'+cuv+'</a>';
+    else if(it.id)out+='<span id="'+it.id+'" class="tinta">'+cuv+'</span>';
+    else if(it.ext)out+='<span class="leg-ext" title="legătură către un proiect neinclus în export">'+cuv+'</span>';
+    else out+=cuv;
+    poz=it.en;
+  }
+  out+=bucata(text.slice(poz));
+  return out;
+}
+
+/* construieste corpul documentului exportat + cuprinsul */
+function construiesteCorpExport(lista){
+  const multi=lista.length>1;
+  const idProj={};
+  lista.forEach((p,i)=>{idProj[p.id]='proj-'+(i+1);});
+  // ancorele necesare: cuvintele-tinta spre care duce vreo legatura
+  const tinte={};let nA=0;
+  lista.forEach(p=>{
+    (p.blocuri||[]).forEach(b=>{
+      if(b.tip!=='text')return;
+      (b.legaturi||[]).forEach(l=>{
+        const tid=l.tinta||p.id;
+        if(!idProj[tid]||!l.cuvantTinta)return;
+        const k=faraDiacritice(l.cuvantTinta);
+        if(!k)return;
+        tinte[tid]=tinte[tid]||new Map();
+        if(!tinte[tid].has(k))tinte[tid].set(k,{ancora:'t'+(++nA)});
+      });
+    });
+  });
+  let body='';
+  const capitole=[];
+  let capN=0;
+  lista.forEach(p=>{
+    const pid=idProj[p.id];
+    const nume=p.nume||p.titlu||'(fără titlu)';
+    body+='<section id="'+pid+'" class="proiect">\n';
+    if(multi){
+      capitole.push({id:pid,titlu:nume,nivel:0});
+      body+='<h2>'+esc(nume)+'</h2>\n';
+    }
+    const ramase=new Map(tinte[p.id]||[]);
+    (p.blocuri||[]).forEach(b=>{
+      if(b.tip!=='text'){
+        if(b.src)body+='<img src="'+b.src+'" alt="poză">\n';
+        return;
+      }
+      const txt=b.text||'';
+      if(!txt.trim())return;
+      const norm=faraDiacritice(txt);
+      const intervale=[];
+      (b.legaturi||[]).forEach(l=>{
+        const c=faraDiacritice(l.cuvant||'');
+        if(!c)return;
+        const st=norm.indexOf(c);
+        if(st<0)return;
+        const tid=l.tinta||p.id;
+        let href=null,ext=false;
+        if(!idProj[tid])ext=true;                        // proiect neinclus
+        else if(!l.cuvantTinta)href='#'+idProj[tid];     // inceputul proiectului
+        else{
+          const t=(tinte[tid]||new Map()).get(faraDiacritice(l.cuvantTinta));
+          href='#'+(t?t.ancora:idProj[tid]);
+        }
+        adaugaInterval(intervale,{st:st,en:st+c.length,href:href,ext:ext});
+      });
+      ramase.forEach((v,k)=>{
+        const st=norm.indexOf(k);
+        if(st<0)return;
+        adaugaInterval(intervale,{st:st,en:st+k.length,id:v.ancora});
+        ramase.delete(k);
+      });
+      const html=randeazaBlocCuLegaturi(txt,intervale);
+      const col=b.culoare?' style="color:'+b.culoare+'"':'';
+      if(b.capitol){
+        capN++;
+        const cid='cap-'+capN;
+        capitole.push({id:cid,titlu:txt.trim().split('\n')[0].trim(),nivel:multi?1:0});
+        body+='<p id="'+cid+'" class="cap"'+col+'>'+html+'</p>\n';
+      }else{
+        body+='<p'+col+'>'+html+'</p>\n';
+      }
+    });
+    body+='</section>\n';
+  });
+  return {body:body,capitole:capitole};
+}
+
+function exportTemplate(title,body,capitole){
+  capitole=capitole||[];
+  const areCuprins=capitole.length>0;
+  const fundal=intunecaCuloare(bgColor.value,+bgLum.value||0);
+  const culoareLink=lumina(fundal)<110?'#8ab4f8':'#2563eb';
+  // butonul plutitor + panoul de cuprins
+  let cuprinsHTML='';
+  if(areCuprins){
+    let itemi='';
+    capitole.forEach(c=>{
+      itemi+='<button class="toc-item'+(c.nivel===0?' toc-proj':'')+'" data-id="'+c.id+'">'+
+        esc(c.titlu)+'</button>\n';
+    });
+    cuprinsHTML=
+      '<button class="toc-fab" id="tocFab" aria-label="Cuprins">☰</button>\n'+
+      '<div class="toc-overlay" id="tocOverlay">\n'+
+      '<div class="toc-panel">\n'+
+      '<div class="toc-head">Cuprins</div>\n'+
+      itemi+
+      '</div></div>\n';
+  }
+return '<!DOCTYPE html>\n<html lang="ro">\n<head>\n'+
+'<meta charset="UTF-8">\n'+
+'<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'+
+'<meta name="theme-color" content="'+intunecaCuloare(bgColor.value,+bgLum.value||0)+'">\n'+
+'<title>'+esc(title)+'</title>\n<style>\n'+
+'  body{background:'+intunecaCuloare(bgColor.value,+bgLum.value||0)+';color:'+inkColor.value+';'+
+'font-family:'+font.value+';line-height:'+spatiere.value+';'+
+'font-size:'+marime.value+'px;margin:0;padding:1.2rem .8rem}\n'+
+'  html{scroll-behavior:smooth}\n'+
+'  .doc{max-width:100%;margin:0 auto}\n'+
+'  h1{font-size:1.45rem;font-weight:600;border-bottom:1px solid rgba(128,128,128,.3);padding-bottom:.5rem}\n'+
+'  h2{font-size:1.15rem;font-weight:600;margin:2rem 0 .6rem;'+
+'border-bottom:1px solid rgba(128,128,128,.25);padding-bottom:.3rem}\n'+
+'  p{margin:.8rem 0}\n'+
+'  a{color:'+culoareLink+';text-decoration:underline;text-underline-offset:2px}\n'+
+'  .leg-ext{text-decoration:underline dotted;opacity:.7}\n'+
+'  section[id],p.cap,a[id],span.tinta{scroll-margin-top:1rem}\n'+
+'  .flash{animation:fl 1.8s ease;border-radius:3px}\n'+
+'  @keyframes fl{0%,100%{background:transparent}15%,55%{background:#ffe08a;color:#2a2620}}\n'+
+'  .toc-proj{font-weight:600}\n'+
+'  .toc-item:not(.toc-proj){padding-left:1.4rem;opacity:.85}\n'+
+'  p.cap::before{content:"";display:block;border-left:3px solid '+inkColor.value+';'+
+'opacity:.5;height:1.1em;position:absolute;margin-left:-.7rem}\n'+
+'  img{max-width:220px;max-height:220px;display:block;border-radius:10px;'+
+'border:1px solid rgba(128,128,128,.3);cursor:zoom-in;margin:1rem 0}\n'+
+'  .toc-fab{position:fixed;right:1rem;bottom:1rem;z-index:80;width:52px;height:52px;'+
+'border-radius:50%;border:none;font-size:1.4rem;cursor:pointer;'+
+'background:'+inkColor.value+';color:'+intunecaCuloare(bgColor.value,+bgLum.value||0)+';'+
+'box-shadow:0 3px 10px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}\n'+
+'  .toc-overlay{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.45);'+
+'display:none;align-items:flex-end;justify-content:center}\n'+
+'  .toc-overlay.on{display:flex}\n'+
+'  .toc-panel{background:'+intunecaCuloare(bgColor.value,(+bgLum.value||0)>0?(+bgLum.value-8):0)+';'+
+'color:'+inkColor.value+';width:100%;max-width:560px;max-height:70vh;overflow:auto;'+
+'border-radius:16px 16px 0 0;padding:1rem 1rem 1.4rem;'+
+'box-shadow:0 -4px 20px rgba(0,0,0,.4)}\n'+
+'  .toc-head{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;'+
+'opacity:.6;margin-bottom:.6rem;padding:0 .2rem}\n'+
+'  .toc-item{display:block;width:100%;text-align:left;background:transparent;'+
+'border:none;border-bottom:1px solid rgba(128,128,128,.2);color:inherit;'+
+'font:inherit;font-size:1rem;padding:.85rem .4rem;cursor:pointer}\n'+
+'  .toc-item:active{background:rgba(128,128,128,.18)}\n'+
+'  .lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;'+
+'z-index:99;touch-action:none;overflow:hidden}\n'+
+'  .lb.on{display:block}\n'+
+'  .lb img{position:absolute;top:0;left:0;transform-origin:0 0;'+
+'max-width:none!important;max-height:none!important;display:block;'+
+'border:none;border-radius:0;margin:0;cursor:default}\n'+
+'</style>\n</head>\n<body>\n<div class="doc">\n'+
+'<h1>'+esc(title)+'</h1>\n'+body+'</div>\n'+
+cuprinsHTML+
+'<div class="lb" id="lb">'+
+'<img id="lbi" alt=""></div>\n'+
+'<script>'+exportLightboxJS()+exportTocJS()+exportAncoreJS()+'<\/script>\n</body>\n</html>';
+}
+
+function exportAncoreJS(){
+return 'function flashAncora(){var h=location.hash.slice(1);if(!h)return;'+
+'var el=document.getElementById(h);if(!el)return;'+
+'el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");'+
+'setTimeout(function(){el.classList.remove("flash")},1900)}'+
+'window.addEventListener("hashchange",flashAncora);'+
+'setTimeout(flashAncora,250);';
+}
+
+function exportTocJS(){
+return 'var tf=document.getElementById("tocFab");if(tf){'+
+'var ov=document.getElementById("tocOverlay");'+
+'tf.addEventListener("click",function(){ov.classList.add("on")});'+
+'ov.addEventListener("click",function(e){if(e.target===ov)ov.classList.remove("on")});'+
+'document.querySelectorAll(".toc-item").forEach(function(b){'+
+'b.addEventListener("click",function(){'+
+'var el=document.getElementById(b.getAttribute("data-id"));'+
+'ov.classList.remove("on");'+
+'if(el)el.scrollIntoView({behavior:"smooth",block:"start"})})});}';
+}
+
+function exportLightboxJS(){
+return 'var lb=document.getElementById("lb"),lbi=document.getElementById("lbi");'+
+'var S={s:1,x:0,y:0,b:1,w:0,h:0},pts=new Map(),d0=0,s0=1,sx=0,sy=0,mv=false,tx=0,ty=0;'+
+'function T(){lbi.style.transform="translate("+S.x+"px,"+S.y+"px) scale("+S.s+")"}'+
+'function open(src){var p=new Image();p.onload=function(){'+
+'S.w=p.naturalWidth;S.h=p.naturalHeight;lbi.src=src;'+
+'lbi.style.width=S.w+"px";lbi.style.height=S.h+"px";'+
+'var W=innerWidth,H=innerHeight;S.b=Math.min(W/S.w,H/S.h,1);S.s=S.b;'+
+'S.x=(W-S.w*S.s)/2;S.y=(H-S.h*S.s)/2;T();lb.classList.add("on")};p.src=src}'+
+'function close(){lb.classList.remove("on");lbi.src=""}'+
+'document.querySelectorAll(".doc img").forEach(function(i){'+
+'i.addEventListener("click",function(){open(i.src)})});'+
+'lbi.addEventListener("click",function(){if(!mv)close()});'+
+'function gS(id,x,y){pts.set(id,{x:x,y:y});'+
+'if(pts.size===1){sx=x-S.x;sy=y-S.y;tx=x;ty=y;mv=false}'+
+'else if(pts.size===2){mv=true;var p=[...pts.values()];'+
+'d0=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);s0=S.s}}'+
+'function gM(id,x,y){if(!pts.has(id))return;pts.set(id,{x:x,y:y});'+
+'var p=[...pts.values()];'+
+'if(pts.size===1){if(Math.hypot(x-tx,y-ty)>10)mv=true;S.x=x-sx;S.y=y-sy;T()}'+
+'else if(pts.size>=2){var d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);'+
+'var mx=(p[0].x+p[1].x)/2,my=(p[0].y+p[1].y)/2;var ns=s0*(d/d0);'+
+'ns=Math.max(S.b*0.5,Math.min(ns,8));var k=ns/S.s;'+
+'S.x=mx-(mx-S.x)*k;S.y=my-(my-S.y)*k;S.s=ns;T()}}'+
+'function gE(id){pts.delete(id);if(pts.size===1){var p=[...pts.values()][0];sx=p.x-S.x;sy=p.y-S.y}}'+
+'if(window.PointerEvent){'+
+'lb.addEventListener("pointerdown",function(e){'+
+'lb.setPointerCapture(e.pointerId);gS(e.pointerId,e.clientX,e.clientY)});'+
+'lb.addEventListener("pointermove",function(e){gM(e.pointerId,e.clientX,e.clientY)});'+
+'lb.addEventListener("pointerup",function(e){gE(e.pointerId)});'+
+'lb.addEventListener("pointercancel",function(e){gE(e.pointerId)});'+
+'}else{'+
+'lb.addEventListener("touchstart",function(e){'+
+'e.preventDefault();for(var j=0;j<e.changedTouches.length;j++){var t=e.changedTouches[j];gS(t.identifier,t.clientX,t.clientY)}},{passive:false});'+
+'lb.addEventListener("touchmove",function(e){e.preventDefault();'+
+'for(var j=0;j<e.changedTouches.length;j++){var t=e.changedTouches[j];gM(t.identifier,t.clientX,t.clientY)}},{passive:false});'+
+'function tE(e){for(var j=0;j<e.changedTouches.length;j++){gE(e.changedTouches[j].identifier)}}'+
+'lb.addEventListener("touchend",tE);lb.addEventListener("touchcancel",tE);}';
+}
+
+/* ====================== Init ====================== */
+async function init(){
+  document.body.classList.add('mod-editare');
+  // cere browserului sa NU stearga automat datele astea sub presiune de spatiu
+  if(navigator.storage && navigator.storage.persist){
+    try{await navigator.storage.persist();}catch(e){}
+  }
+  await deschideDB();
+  proiecte=await idbGetAll();
+  if(!proiecte.length){
+    projNou();
+  }else{
+    proiecte.sort((a,b)=>b.actualizat-a.actualizat);
+    proiectActivId=proiecte[0].id;
+    incarcaInEditor(proiecte[0]);
+  }
+  randeazaListaProiecte();
+  actualizeazaGol();
+  aplicaMod();
+}
+init();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
